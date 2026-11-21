@@ -1,3 +1,4 @@
+
 name: Terraform Dev Deployment
 
 on:
@@ -12,35 +13,58 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: ap-south-1
+  AWS_REGION: ${{ vars.AWS_REGION }}
   TF_IN_AUTOMATION: true
 
 jobs:
-  terraform:
+  terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Display repository identity for OIDC troubleshooting
+      - name: Display GitHub repository identity
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Repository ID: ${{ github.repository_id }}"
+          echo "Owner ID: ${{ github.repository_owner_id }}"
+          echo "Branch: ${{ github.ref }}"
+
+      # Step 3: Authenticate with AWS using GitHub OIDC
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::873072308326:role/Terraform-GitHub-OIDC-Role
-          aws-region: ap-south-1
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
+      # Step 4: Install Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      # Step 5: Check Terraform formatting
       - name: Terraform Format
         run: terraform fmt -check -recursive
 
+      # Step 6: Initialize Terraform and S3 backend
       - name: Terraform Init
         run: terraform init
 
+      # Step 7: Validate Terraform configuration
       - name: Terraform Validate
         run: terraform validate
 
+      # Step 8: Generate Terraform execution plan
       - name: Terraform Plan
-        run: terraform plan
+        run: terraform plan -out=tfplan
+
+      # Step 9: Upload plan for review
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-dev-plan
+          path: tfplan
+          retention-days: 1
