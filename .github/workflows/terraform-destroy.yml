@@ -1,0 +1,61 @@
+
+name: Terraform Dev Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: "Are you sure you want to destroy Dev infrastructure?"
+        required: true
+        type: choice
+        options:
+          - "no"
+          - "yes"
+        default: "no"
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: true
+
+jobs:
+  terraform-destroy:
+    name: Destroy Dev Infrastructure
+    if: inputs.confirm_destroy == 'yes'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.2
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Generate Destroy Plan
+        run: terraform plan -destroy -input=false -out=tfplan
+
+      - name: Display Destroy Plan
+        run: terraform show -no-color tfplan
+
+      - name: Apply Destroy Plan
+        run: terraform apply -input=false -auto-approve tfplan
