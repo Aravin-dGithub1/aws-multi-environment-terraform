@@ -30,6 +30,10 @@ jobs:
     if: inputs.confirm_destroy == 'yes'
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: environments/dev
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,6 +46,7 @@ jobs:
 
       - name: Verify AWS identity
         run: aws sts get-caller-identity
+        working-directory: .
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
